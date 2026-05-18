@@ -240,6 +240,49 @@ tr:last-child td { border-bottom: none; }
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
 }
 
+/* ─── EXTERNAL COMPARE ─── */
+.ext-compare {
+  margin-top: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.ext-title {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px;
+}
+.ext-row {
+  display: flex; align-items: stretch; gap: 0;
+}
+.ext-divider {
+  width: 1px; background: var(--border); flex-shrink: 0; margin: 0 12px;
+}
+.ext-item {
+  flex: 1; min-width: 0;
+}
+.ext-source {
+  font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 3px;
+}
+.ext-val-wrap {
+  display: flex; align-items: baseline; gap: 5px; margin-bottom: 3px;
+}
+.ext-val {
+  font-size: 22px; font-weight: 900; color: var(--text); line-height: 1;
+}
+.ext-val .star { color: #f59e0b; font-size: 16px; }
+.ext-val-loading { font-size: 11px; color: var(--muted); }
+.ext-val-na { font-size: 11px; color: var(--muted); }
+.ext-count { font-size: 10px; color: var(--muted); }
+.ext-link {
+  font-size: 10px; color: var(--accent); text-decoration: none; font-weight: 600;
+}
+.ext-link:hover { text-decoration: underline; }
+.ext-hint {
+  font-size: 10px; color: var(--muted); margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border);
+}
+
 /* ─── MOBILE ─── */
 @media (max-width: 420px) {
   .score-grid { grid-template-columns: repeat(2, 1fr); }
@@ -326,34 +369,30 @@ tr:last-child td { border-bottom: none; }
         <span class="diff-label">一般ユーザー vs 食べロガー の差</span>
         <span class="diff-val" id="diff-val">—</span>
       </div>
-    </div>
 
-    <!-- Other sites -->
-    <div class="card">
-      <div class="card-title" style="margin-bottom:10px;">他サイトのスコア</div>
-      <div class="ratings-row">
-        <!-- Google Maps -->
-        <div class="rating-item">
-          <div class="rating-source">🗺️ Google</div>
-          <div id="grating-val" class="rating-loading">取得中…</div>
-          <div id="grating-count" class="rating-count"></div>
-          <a id="gmap-link" href="#" target="_blank" rel="noopener" class="rating-link">マップで見る →</a>
-        </div>
-        <!-- Retty -->
-        <div class="rating-item">
-          <div class="rating-source">🍽️ Retty</div>
-          <div id="rrating-val" class="rating-loading">取得中…</div>
-          <div id="rrating-count" class="rating-count"></div>
-          <a id="retty-link" href="#" target="_blank" rel="noopener" class="rating-link">Rettyで見る →</a>
-        </div>
-        <!-- Comparison tip -->
-        <div class="rating-item" style="background:var(--accent-light);border-color:rgba(37,99,235,.2);">
-          <div class="rating-source" style="color:var(--accent);">💡 比較ヒント</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:4px;line-height:1.5;">
-            一般スコアと他サイト評価が近い → 信頼度高<br>
-            公式と乖離が大きい → 要注意
+      <!-- 外部サイト比較（サマリ内） -->
+      <div class="ext-compare">
+        <div class="ext-title">外部サイト比較</div>
+        <div class="ext-row">
+          <div class="ext-item">
+            <div class="ext-source">🗺️ Google Maps</div>
+            <div class="ext-val-wrap">
+              <span id="ext-gval" class="ext-val-loading">取得中…</span>
+              <span id="ext-gcnt" class="ext-count"></span>
+            </div>
+            <a id="ext-glink" href="#" target="_blank" rel="noopener" class="ext-link">地図で確認 →</a>
+          </div>
+          <div class="ext-divider"></div>
+          <div class="ext-item">
+            <div class="ext-source">🍽️ Retty</div>
+            <div class="ext-val-wrap">
+              <span id="ext-rval" class="ext-val-loading">取得中…</span>
+              <span id="ext-rcnt" class="ext-count"></span>
+            </div>
+            <a id="ext-rlink" href="#" target="_blank" rel="noopener" class="ext-link">Rettyで確認 →</a>
           </div>
         </div>
+        <div class="ext-hint">💡 一般スコアと外部評価が近いほど信頼性が高い</div>
       </div>
     </div>
 
@@ -566,59 +605,162 @@ function parseReviews(html) {
 }
 
 // ─── Google スコア取得（ベストエフォート）────────────
-async function fetchGoogleRating(name, address) {
-  const q = `${name} ${address}`;
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP`;
+async function fetchGoogleRating(jpName, address) {
+  // 日本語店名 + 住所でGoogle検索
+  const q   = `${jpName} ${address}`;
+  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP`;
 
   try {
-    const html = await fetchPage(searchUrl);
+    const html = await fetchPage(url);
 
-    // JSON-LD から取得
-    const ldMatches = html.match(/"ratingValue"\s*:\s*"?([0-9.]+)"?/g);
-    const cntMatches = html.match(/"(?:reviewCount|ratingCount)"\s*:\s*"?([0-9,]+)"?/g);
+    // CAPTCHA / bot検知ページを除外
+    if (!html || html.includes('</html>') === false) return null;
+    if (/captcha|unusual traffic|bot/i.test(html.slice(0, 2000))) return null;
 
-    if (ldMatches && ldMatches.length > 0) {
-      const rating = parseFloat(ldMatches[0].match(/([0-9.]+)/)[1]);
-      const count  = cntMatches ? parseInt(cntMatches[0].match(/([0-9,]+)/)[1].replace(/,/g,'')) : null;
-      if (rating >= 1 && rating <= 5) return { rating: rating.toFixed(1), count };
+    // 方法1: <script type="application/ld+json"> ブロック全体をパース
+    for (const [, block] of html.matchAll(
+      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
+    )) {
+      try {
+        const data = JSON.parse(block.trim());
+        const ar = data?.aggregateRating ??
+                   (Array.isArray(data) ? data.find(d => d.aggregateRating)?.aggregateRating : null);
+        if (ar?.ratingValue) {
+          const r = parseFloat(ar.ratingValue);
+          if (r >= 1 && r <= 5) {
+            const cnt = parseInt(ar.reviewCount ?? ar.ratingCount ?? 0);
+            return { rating: r.toFixed(1), count: cnt || null };
+          }
+        }
+      } catch(_) {}
     }
 
-    // og:description や structured data から探す
-    const rateInText = html.match(/\b([1-5]\.[0-9])\b\s*[（(（]?([\d,]+)\s*件/);
-    if (rateInText) {
-      return { rating: rateInText[1], count: parseInt(rateInText[2].replace(/,/g,'')) };
+    // 方法2: ページ内JSON文字列から ratingValue を抽出
+    const rv = html.match(/"ratingValue"\s*:\s*"?([1-5]\.[0-9]+)"?/);
+    const rc = html.match(/"(?:reviewCount|ratingCount|userRatingCount)"\s*:\s*"?([0-9,]+)"?/);
+    if (rv) {
+      const r = parseFloat(rv[1]);
+      if (r >= 1 && r <= 5) {
+        return { rating: r.toFixed(1), count: rc ? parseInt(rc[1].replace(/,/g,'')) : null };
+      }
     }
+
+    // 方法3: 日本語テキストパターン「4.2（85 件の口コミ）」
+    const jp = html.match(/([1-5]\.[0-9])\s*[（(]\s*([0-9,]+)\s*件の?(?:口コミ|クチコミ|評価)/);
+    if (jp) return { rating: jp[1], count: parseInt(jp[2].replace(/,/g,'')) };
 
     return null;
-  } catch (e) {
+  } catch(e) {
     return null;
   }
 }
 
-// ─── Retty スコア取得（ベストエフォート）─────────────
-async function fetchRettyRating(name, address) {
-  const city = address.replace(/(.{2,4}[都道府県]).*/, '$1'); // 都道府県だけ
-  const searchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(name + ' ' + city)}`;
+// ─── 日本語店名を取得（JP版Tabelogページから）────────
+async function fetchJpStoreName(enBaseUrl) {
+  // EN URL → JP URL（/en/ を除去）
+  const jpUrl = enBaseUrl.replace('/en/', '/');
+  try {
+    const html = await fetchPage(jpUrl);
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const name = (
+      doc.querySelector('.rdheader-info__name-main')?.textContent ||
+      doc.querySelector('h2.display-name')?.textContent ||
+      doc.querySelector('h1')?.textContent || ''
+    ).trim();
+    // ひらがな・カタカナ・漢字を含む場合だけ採用
+    return /[\u3040-\u9FFF]/.test(name) ? name : '';
+  } catch(_) {
+    return '';
+  }
+}
+
+// ─── Retty スコア取得（2ステップ: 検索 → 店舗ページ JSON-LD）──
+async function fetchRettyRating(jpName) {
+  const searchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(jpName)}`;
 
   try {
-    const html = await fetchPage(searchUrl);
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    // Step 1: 検索結果ページを取得
+    const searchHtml = await fetchPage(searchUrl);
+    const doc = new DOMParser().parseFromString(searchHtml, 'text/html');
 
-    // Retty の検索結果から最初のマッチを取得
-    const firstItem = doc.querySelector('[class*="restaurant-item"], [class*="RestaurantItem"]');
-    if (!firstItem) return { searchUrl };
+    // 店舗ページリンクを探す（新旧URL形式に対応）
+    // 旧: /area/PRE00/ARE000/SUB000000/{id}/
+    // 新: /restaurant/{id}/ など
+    const allLinks = [...doc.querySelectorAll('a[href]')];
+    const storeLink = allLinks.find(a => {
+      const h = a.getAttribute('href') || '';
+      return /\/area\/PRE\d+\//.test(h) ||
+             /retty\.me\/area\/PRE\d+\//.test(h) ||
+             /\/restaurant\/\d+/.test(h);
+    });
 
-    // 評点
-    const scoreEl = firstItem.querySelector('[class*="score"], [class*="rating"], [class*="point"]');
-    const rating  = scoreEl ? parseFloat(scoreEl.textContent.trim()) : null;
+    // Step 2: 検索結果ページ自体の JSON-LD も試す（一覧にある場合）
+    for (const [, block] of searchHtml.matchAll(
+      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
+    )) {
+      try {
+        const data = JSON.parse(block.trim());
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          const ar = item?.aggregateRating;
+          if (ar?.ratingValue) {
+            const r = parseFloat(ar.ratingValue);
+            if (r >= 1 && r <= 5) {
+              return {
+                rating: r.toFixed(1),
+                count: parseInt(ar.reviewCount ?? ar.ratingCount ?? 0) || null,
+                rettyUrl: storeLink ? 'https://retty.me' + storeLink.getAttribute('href') : searchUrl,
+                searchUrl
+              };
+            }
+          }
+        }
+      } catch(_) {}
+    }
 
-    // リンク
-    const linkEl = firstItem.querySelector('a[href*="/area/"]');
-    const rettyUrl = linkEl ? 'https://retty.me' + linkEl.getAttribute('href') : null;
+    if (!storeLink) return { rettyUrl: searchUrl, searchUrl };
 
-    return { rating: rating?.toFixed(1), rettyUrl, searchUrl };
-  } catch (e) {
-    return { searchUrl };
+    const rettyUrl = (() => {
+      const h = storeLink.getAttribute('href');
+      return h.startsWith('http') ? h : 'https://retty.me' + h;
+    })();
+
+    // Step 3: 店舗ページの JSON-LD を取得
+    const restHtml = await fetchPage(rettyUrl);
+    for (const [, block] of restHtml.matchAll(
+      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
+    )) {
+      try {
+        const data = JSON.parse(block.trim());
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          const ar = item?.aggregateRating;
+          if (ar?.ratingValue) {
+            const r = parseFloat(ar.ratingValue);
+            if (r >= 1 && r <= 5) {
+              return {
+                rating: r.toFixed(1),
+                count: parseInt(ar.reviewCount ?? ar.ratingCount ?? 0) || null,
+                rettyUrl,
+                searchUrl
+              };
+            }
+          }
+        }
+      } catch(_) {}
+    }
+
+    // Step 4: DOM フォールバック
+    const doc2   = new DOMParser().parseFromString(restHtml, 'text/html');
+    const scoreEl = doc2.querySelector('[itemprop="ratingValue"],[class*="score"],[class*="Score"]');
+    const val     = scoreEl ? parseFloat(scoreEl.textContent.trim()) : NaN;
+    if (!isNaN(val) && val >= 1 && val <= 5) {
+      return { rating: val.toFixed(1), rettyUrl, searchUrl };
+    }
+
+    return { rettyUrl, searchUrl };
+  } catch(e) {
+    return { rettyUrl: searchUrl, searchUrl };
   }
 }
 
@@ -683,17 +825,22 @@ async function runAnalysis() {
   showStatus('loading', '口コミ取得中（2ページ）… しばらくお待ちください');
 
   // 他サイトスコアをローディング状態にリセット
-  setEl('grating-val', '<span class="rating-loading">取得中…</span>');
-  setEl('rrating-val', '<span class="rating-loading">取得中…</span>');
-  setEl('grating-count', '');
-  setEl('rrating-count', '');
+  setEl('ext-gval', '<span class="ext-val-loading">取得中…</span>');
+  setEl('ext-rval', '<span class="ext-val-loading">取得中…</span>');
+  setEl('ext-gcnt', '', true);
+  setEl('ext-rcnt', '', true);
 
   try {
     const baseUrl  = m[1];
     const rvwUrl   = baseUrl + '/dtlrvwlst/';
     const rvwUrl2  = rvwUrl + '?PG=2&lc=0&rvw_part=all&smp=1&use_type=0';
 
-    const [html1, html2] = await Promise.all([fetchPage(rvwUrl), fetchPage(rvwUrl2)]);
+    // 口コミ2ページ + JP版店舗ページ（日本語店名取得用）を並列取得
+    const [html1, html2, jpName] = await Promise.all([
+      fetchPage(rvwUrl),
+      fetchPage(rvwUrl2),
+      fetchJpStoreName(baseUrl)
+    ]);
 
     const reviews = [...parseReviews(html1), ...parseReviews(html2)];
     if (!reviews.length) throw new Error(
@@ -713,6 +860,9 @@ async function runAnalysis() {
     const address = (
       doc1.querySelector('.rstinfo-table__address, [itemprop="address"]')?.textContent || ''
     ).replace(/\s+/g, ' ').trim();
+
+    // 日本語店名（JP版ページから並列取得済み。失敗時は英語名で代替）
+    const japaneseName = jpName || name;
 
     // 分類 & 計算
     const classified = reviews.map(r => ({ ...r, isTaber: r.rc >= RT && r.fc >= FT }));
@@ -759,11 +909,11 @@ async function runAnalysis() {
         </tr>`;
     }).join('');
 
-    // ── Google Maps リンク ─────────────────────────
-    const q = encodeURIComponent(`${name} ${address}`);
+    // ── Google Maps / Retty リンクを事前設定 ────────
+    const q = encodeURIComponent(`${japaneseName || name} ${address}`);
     const gmUrl = `https://www.google.com/maps/search/${q}`;
     const gsUrl = `https://www.google.com/search?q=${q}`;
-    document.getElementById('gmap-link').href     = gmUrl;
+    document.getElementById('ext-glink').href     = gmUrl;
     document.getElementById('gmap-btn-link').href = gmUrl;
     document.getElementById('gsearch-link').href  = gsUrl;
 
@@ -771,36 +921,37 @@ async function runAnalysis() {
       <div class="store-info-name">${esc(name)}</div>
       <div class="store-info-addr">${esc(address) || '住所情報なし'}</div>`;
 
-    // ── Retty リンク（事前設定）───────────────────
-    const rettySearchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(name)}`;
-    document.getElementById('retty-link').href = rettySearchUrl;
+    const rettySearchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(japaneseName || name)}`;
+    document.getElementById('ext-rlink').href = rettySearchUrl;
 
     // 結果表示
     hideStatus();
     document.getElementById('results').style.display = 'block';
 
     // ── 他サイト スコア非同期取得 ─────────────────
-    fetchGoogleRating(name, address).then(result => {
+    fetchGoogleRating(japaneseName || name, address).then(result => {
       if (result?.rating) {
-        setEl('grating-val', `<span class="rating-val"><span class="star">★</span>${result.rating}</span>`);
-        if (result.count) setEl('grating-count', `${result.count.toLocaleString()}件の口コミ`, true);
+        setEl('ext-gval', `<span class="ext-val"><span class="star">★</span>${result.rating}</span>`);
+        if (result.count) setEl('ext-gcnt', `${result.count.toLocaleString()}件`, true);
       } else {
-        setEl('grating-val', '<span class="rating-na">リンクから確認</span>');
+        setEl('ext-gval', '<span class="ext-val-na">リンクから確認</span>');
       }
     }).catch(() => {
-      setEl('grating-val', '<span class="rating-na">取得不可</span>');
+      setEl('ext-gval', '<span class="ext-val-na">取得不可</span>');
     });
 
-    fetchRettyRating(name, address).then(result => {
+    fetchRettyRating(japaneseName || name).then(result => {
       if (result?.rating && !isNaN(parseFloat(result.rating))) {
-        setEl('rrating-val', `<span class="rating-val"><span class="star">★</span>${result.rating}</span>`);
-        if (result.rettyUrl) document.getElementById('retty-link').href = result.rettyUrl;
+        setEl('ext-rval', `<span class="ext-val"><span class="star">★</span>${result.rating}</span>`);
+        if (result.count) setEl('ext-rcnt', `${result.count.toLocaleString()}件`, true);
+        if (result.rettyUrl) document.getElementById('ext-rlink').href = result.rettyUrl;
       } else {
-        setEl('rrating-val', '<span class="rating-na">リンクから確認</span>');
-        if (result?.searchUrl) document.getElementById('retty-link').href = result.searchUrl;
+        setEl('ext-rval', '<span class="ext-val-na">リンクから確認</span>');
+        const best = result?.rettyUrl || result?.searchUrl;
+        if (best) document.getElementById('ext-rlink').href = best;
       }
     }).catch(() => {
-      setEl('rrating-val', '<span class="rating-na">取得不可</span>');
+      setEl('ext-rval', '<span class="ext-val-na">取得不可</span>');
     });
 
   } catch (err) {
