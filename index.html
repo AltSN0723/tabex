@@ -240,48 +240,19 @@ tr:last-child td { border-bottom: none; }
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
 }
 
-/* ─── EXTERNAL COMPARE ─── */
-.ext-compare {
-  margin-top: 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+/* ─── EXTERNAL LINKS ─── */
+.ext-links {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;
 }
-.ext-title {
-  font-size: 10px; font-weight: 700; color: var(--muted);
-  letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px;
+.ext-link-btn {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 10px 12px; border-radius: 9px; text-decoration: none;
+  font-size: 12px; font-weight: 700; transition: opacity .15s;
+  text-align: center;
 }
-.ext-row {
-  display: flex; align-items: stretch; gap: 0;
-}
-.ext-divider {
-  width: 1px; background: var(--border); flex-shrink: 0; margin: 0 12px;
-}
-.ext-item {
-  flex: 1; min-width: 0;
-}
-.ext-source {
-  font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 3px;
-}
-.ext-val-wrap {
-  display: flex; align-items: baseline; gap: 5px; margin-bottom: 3px;
-}
-.ext-val {
-  font-size: 22px; font-weight: 900; color: var(--text); line-height: 1;
-}
-.ext-val .star { color: #f59e0b; font-size: 16px; }
-.ext-val-loading { font-size: 11px; color: var(--muted); }
-.ext-val-na { font-size: 11px; color: var(--muted); }
-.ext-count { font-size: 10px; color: var(--muted); }
-.ext-link {
-  font-size: 10px; color: var(--accent); text-decoration: none; font-weight: 600;
-}
-.ext-link:hover { text-decoration: underline; }
-.ext-hint {
-  font-size: 10px; color: var(--muted); margin-top: 8px;
-  padding-top: 8px; border-top: 1px solid var(--border);
-}
+.ext-link-btn:active { opacity: .75; }
+.ext-link-google { background: #1a73e8; color: #fff; }
+.ext-link-search { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
 
 /* ─── MOBILE ─── */
 @media (max-width: 420px) {
@@ -370,29 +341,14 @@ tr:last-child td { border-bottom: none; }
         <span class="diff-val" id="diff-val">—</span>
       </div>
 
-      <!-- 外部サイト比較（サマリ内） -->
-      <div class="ext-compare">
-        <div class="ext-title">外部サイト比較</div>
-        <div class="ext-row">
-          <div class="ext-item">
-            <div class="ext-source">🗺️ Google Maps</div>
-            <div class="ext-val-wrap">
-              <span id="ext-gval" class="ext-val-loading">取得中…</span>
-              <span id="ext-gcnt" class="ext-count"></span>
-            </div>
-            <a id="ext-glink" href="#" target="_blank" rel="noopener" class="ext-link">地図で確認 →</a>
-          </div>
-          <div class="ext-divider"></div>
-          <div class="ext-item">
-            <div class="ext-source">🍽️ Retty</div>
-            <div class="ext-val-wrap">
-              <span id="ext-rval" class="ext-val-loading">取得中…</span>
-              <span id="ext-rcnt" class="ext-count"></span>
-            </div>
-            <a id="ext-rlink" href="#" target="_blank" rel="noopener" class="ext-link">Rettyで確認 →</a>
-          </div>
-        </div>
-        <div class="ext-hint">💡 一般スコアと外部評価が近いほど信頼性が高い</div>
+      <!-- 外部サイトへのリンク -->
+      <div class="ext-links">
+        <a id="ext-gmap-link" href="#" target="_blank" rel="noopener" class="ext-link-btn ext-link-google">
+          🗺️ Google マップで確認
+        </a>
+        <a id="ext-gsearch-link" href="#" target="_blank" rel="noopener" class="ext-link-btn ext-link-search">
+          🔍 Google 検索
+        </a>
       </div>
     </div>
 
@@ -604,57 +560,6 @@ function parseReviews(html) {
   return results;
 }
 
-// ─── Google スコア取得（ベストエフォート）────────────
-async function fetchGoogleRating(jpName, address) {
-  // 日本語店名 + 住所でGoogle検索
-  const q   = `${jpName} ${address}`;
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP`;
-
-  try {
-    const html = await fetchPage(url);
-
-    // CAPTCHA / bot検知ページを除外
-    if (!html || html.includes('</html>') === false) return null;
-    if (/captcha|unusual traffic|bot/i.test(html.slice(0, 2000))) return null;
-
-    // 方法1: <script type="application/ld+json"> ブロック全体をパース
-    for (const [, block] of html.matchAll(
-      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
-    )) {
-      try {
-        const data = JSON.parse(block.trim());
-        const ar = data?.aggregateRating ??
-                   (Array.isArray(data) ? data.find(d => d.aggregateRating)?.aggregateRating : null);
-        if (ar?.ratingValue) {
-          const r = parseFloat(ar.ratingValue);
-          if (r >= 1 && r <= 5) {
-            const cnt = parseInt(ar.reviewCount ?? ar.ratingCount ?? 0);
-            return { rating: r.toFixed(1), count: cnt || null };
-          }
-        }
-      } catch(_) {}
-    }
-
-    // 方法2: ページ内JSON文字列から ratingValue を抽出
-    const rv = html.match(/"ratingValue"\s*:\s*"?([1-5]\.[0-9]+)"?/);
-    const rc = html.match(/"(?:reviewCount|ratingCount|userRatingCount)"\s*:\s*"?([0-9,]+)"?/);
-    if (rv) {
-      const r = parseFloat(rv[1]);
-      if (r >= 1 && r <= 5) {
-        return { rating: r.toFixed(1), count: rc ? parseInt(rc[1].replace(/,/g,'')) : null };
-      }
-    }
-
-    // 方法3: 日本語テキストパターン「4.2（85 件の口コミ）」
-    const jp = html.match(/([1-5]\.[0-9])\s*[（(]\s*([0-9,]+)\s*件の?(?:口コミ|クチコミ|評価)/);
-    if (jp) return { rating: jp[1], count: parseInt(jp[2].replace(/,/g,'')) };
-
-    return null;
-  } catch(e) {
-    return null;
-  }
-}
-
 // ─── 日本語店名を取得（JP版Tabelogページから）────────
 async function fetchJpStoreName(enBaseUrl) {
   // EN URL → JP URL（/en/ を除去）
@@ -671,96 +576,6 @@ async function fetchJpStoreName(enBaseUrl) {
     return /[\u3040-\u9FFF]/.test(name) ? name : '';
   } catch(_) {
     return '';
-  }
-}
-
-// ─── Retty スコア取得（2ステップ: 検索 → 店舗ページ JSON-LD）──
-async function fetchRettyRating(jpName) {
-  const searchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(jpName)}`;
-
-  try {
-    // Step 1: 検索結果ページを取得
-    const searchHtml = await fetchPage(searchUrl);
-    const doc = new DOMParser().parseFromString(searchHtml, 'text/html');
-
-    // 店舗ページリンクを探す（新旧URL形式に対応）
-    // 旧: /area/PRE00/ARE000/SUB000000/{id}/
-    // 新: /restaurant/{id}/ など
-    const allLinks = [...doc.querySelectorAll('a[href]')];
-    const storeLink = allLinks.find(a => {
-      const h = a.getAttribute('href') || '';
-      return /\/area\/PRE\d+\//.test(h) ||
-             /retty\.me\/area\/PRE\d+\//.test(h) ||
-             /\/restaurant\/\d+/.test(h);
-    });
-
-    // Step 2: 検索結果ページ自体の JSON-LD も試す（一覧にある場合）
-    for (const [, block] of searchHtml.matchAll(
-      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
-    )) {
-      try {
-        const data = JSON.parse(block.trim());
-        const items = Array.isArray(data) ? data : [data];
-        for (const item of items) {
-          const ar = item?.aggregateRating;
-          if (ar?.ratingValue) {
-            const r = parseFloat(ar.ratingValue);
-            if (r >= 1 && r <= 5) {
-              return {
-                rating: r.toFixed(1),
-                count: parseInt(ar.reviewCount ?? ar.ratingCount ?? 0) || null,
-                rettyUrl: storeLink ? 'https://retty.me' + storeLink.getAttribute('href') : searchUrl,
-                searchUrl
-              };
-            }
-          }
-        }
-      } catch(_) {}
-    }
-
-    if (!storeLink) return { rettyUrl: searchUrl, searchUrl };
-
-    const rettyUrl = (() => {
-      const h = storeLink.getAttribute('href');
-      return h.startsWith('http') ? h : 'https://retty.me' + h;
-    })();
-
-    // Step 3: 店舗ページの JSON-LD を取得
-    const restHtml = await fetchPage(rettyUrl);
-    for (const [, block] of restHtml.matchAll(
-      /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
-    )) {
-      try {
-        const data = JSON.parse(block.trim());
-        const items = Array.isArray(data) ? data : [data];
-        for (const item of items) {
-          const ar = item?.aggregateRating;
-          if (ar?.ratingValue) {
-            const r = parseFloat(ar.ratingValue);
-            if (r >= 1 && r <= 5) {
-              return {
-                rating: r.toFixed(1),
-                count: parseInt(ar.reviewCount ?? ar.ratingCount ?? 0) || null,
-                rettyUrl,
-                searchUrl
-              };
-            }
-          }
-        }
-      } catch(_) {}
-    }
-
-    // Step 4: DOM フォールバック
-    const doc2   = new DOMParser().parseFromString(restHtml, 'text/html');
-    const scoreEl = doc2.querySelector('[itemprop="ratingValue"],[class*="score"],[class*="Score"]');
-    const val     = scoreEl ? parseFloat(scoreEl.textContent.trim()) : NaN;
-    if (!isNaN(val) && val >= 1 && val <= 5) {
-      return { rating: val.toFixed(1), rettyUrl, searchUrl };
-    }
-
-    return { rettyUrl, searchUrl };
-  } catch(e) {
-    return { rettyUrl: searchUrl, searchUrl };
   }
 }
 
@@ -824,12 +639,6 @@ async function runAnalysis() {
   document.getElementById('results').style.display = 'none';
   showStatus('loading', '口コミ取得中（2ページ）… しばらくお待ちください');
 
-  // 他サイトスコアをローディング状態にリセット
-  setEl('ext-gval', '<span class="ext-val-loading">取得中…</span>');
-  setEl('ext-rval', '<span class="ext-val-loading">取得中…</span>');
-  setEl('ext-gcnt', '', true);
-  setEl('ext-rcnt', '', true);
-
   try {
     const baseUrl  = m[1];
     const rvwUrl   = baseUrl + '/dtlrvwlst/';
@@ -874,7 +683,7 @@ async function runAnalysis() {
     const gap  = (aG && aT) ? (parseFloat(aG) - parseFloat(aT)).toFixed(2) : null;
 
     // ── 食べログ スコア表示 ────────────────────────
-    setEl('store-name', esc(name), true);
+    setEl('store-name', esc(japaneseName || name), true);
     setEl('store-sub', `${classified.length}件分析 ／ 食べロガー判定: 投稿${RT}件+ ＆ フォロワー${FT}人+`, true);
 
     setEl('sc-official', isNaN(officialScore) ? '—' : officialScore.toFixed(2), true);
@@ -909,50 +718,24 @@ async function runAnalysis() {
         </tr>`;
     }).join('');
 
-    // ── Google Maps / Retty リンクを事前設定 ────────
-    const q = encodeURIComponent(`${japaneseName || name} ${address}`);
+    // ── 外部リンクを設定 ──────────────────────────
+    const displayName = japaneseName || name;
+    const q = encodeURIComponent(`${displayName} ${address}`);
     const gmUrl = `https://www.google.com/maps/search/${q}`;
     const gsUrl = `https://www.google.com/search?q=${q}`;
-    document.getElementById('ext-glink').href     = gmUrl;
-    document.getElementById('gmap-btn-link').href = gmUrl;
-    document.getElementById('gsearch-link').href  = gsUrl;
+    document.getElementById('ext-gmap-link').href  = gmUrl;
+    document.getElementById('ext-gsearch-link').href = gsUrl;
+    document.getElementById('gmap-btn-link').href  = gmUrl;
+    document.getElementById('gsearch-link').href   = gsUrl;
 
     document.getElementById('gmap-store-info').innerHTML = `
-      <div class="store-info-name">${esc(name)}</div>
+      <div class="store-info-name">${esc(displayName)}</div>
       <div class="store-info-addr">${esc(address) || '住所情報なし'}</div>`;
-
-    const rettySearchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(japaneseName || name)}`;
-    document.getElementById('ext-rlink').href = rettySearchUrl;
 
     // 結果表示
     hideStatus();
     document.getElementById('results').style.display = 'block';
 
-    // ── 他サイト スコア非同期取得 ─────────────────
-    fetchGoogleRating(japaneseName || name, address).then(result => {
-      if (result?.rating) {
-        setEl('ext-gval', `<span class="ext-val"><span class="star">★</span>${result.rating}</span>`);
-        if (result.count) setEl('ext-gcnt', `${result.count.toLocaleString()}件`, true);
-      } else {
-        setEl('ext-gval', '<span class="ext-val-na">リンクから確認</span>');
-      }
-    }).catch(() => {
-      setEl('ext-gval', '<span class="ext-val-na">取得不可</span>');
-    });
-
-    fetchRettyRating(japaneseName || name).then(result => {
-      if (result?.rating && !isNaN(parseFloat(result.rating))) {
-        setEl('ext-rval', `<span class="ext-val"><span class="star">★</span>${result.rating}</span>`);
-        if (result.count) setEl('ext-rcnt', `${result.count.toLocaleString()}件`, true);
-        if (result.rettyUrl) document.getElementById('ext-rlink').href = result.rettyUrl;
-      } else {
-        setEl('ext-rval', '<span class="ext-val-na">リンクから確認</span>');
-        const best = result?.rettyUrl || result?.searchUrl;
-        if (best) document.getElementById('ext-rlink').href = best;
-      }
-    }).catch(() => {
-      setEl('ext-rval', '<span class="ext-val-na">取得不可</span>');
-    });
 
   } catch (err) {
     showStatus('error', err.message);
