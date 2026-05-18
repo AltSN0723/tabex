@@ -277,8 +277,9 @@ tr:last-child td { border-bottom: none; }
       ✓ 英語版URLに自動変換しました
     </div>
     <div class="hint">
-      日本語・英語どちらのURLも対応。英語版に自動変換して取得します。<br>
-      例: <code>tabelog.com/kagawa/A3701/A370101/37001763/</code>
+      PC版・スマホ版（s.tabelog.com）・日本語版・英語版、すべてのURLに対応。<br>
+      PC版例: <code>tabelog.com/kagawa/A3701/A370101/37001763/</code><br>
+      スマホ版例: <code>s.tabelog.com/tokyo/A1302/A130201/13043904/</code>
     </div>
   </div>
 
@@ -451,15 +452,23 @@ function toggleTheme() {
 }
 applyTheme(getTheme());
 
-// ─── URL 自動変換 ─────────────────────────────────
-function normalizeUrl(url) {
-  // 日本語版 → 英語版に変換
-  // tabelog.com/XX/ → tabelog.com/en/XX/
-  const converted = url.replace(
-    /^(https?:\/\/tabelog\.com\/)(?!en\/)(\w+\/)/,
-    '$1en/$2'
+// ─── URL 正規化（PC・スマホ版両対応）──────────────
+function normalizeUrl(raw) {
+  const input = raw.trim();
+
+  // クエリ文字列・ハッシュを除去
+  const clean = input.split('?')[0].split('#')[0];
+
+  // s.tabelog.com（スマホ）/ tabelog.com（PC）の両方から
+  // 店舗IDまでのパス成分を抽出して英語版 URL に統一
+  const m = clean.match(
+    /tabelog\.com(?:\/en)?\/(\w+)\/([A-Z]\d+)\/([A-Z]\d+)\/(\d+)/
   );
-  return { url: converted, wasConverted: converted !== url };
+  if (!m) return { url: input, wasConverted: false };
+
+  const normalized = `https://tabelog.com/en/${m[1]}/${m[2]}/${m[3]}/${m[4]}/`;
+  const wasConverted = normalized !== (clean.endsWith('/') ? clean : clean + '/');
+  return { url: normalized, wasConverted };
 }
 
 // URL入力時にプレビュー表示
@@ -664,7 +673,7 @@ async function runAnalysis() {
   // URL検証
   const m = url.match(/(https?:\/\/tabelog\.com\/en\/\w+\/[A-Z]\d+\/[A-Z]\d+\/\d+)/);
   if (!m) {
-    showStatus('error', '食べログの飲食店URLを入力してください');
+    showStatus('error', '食べログの飲食店URLを入力してください（PC版・スマホ版どちらも対応）');
     return;
   }
 
