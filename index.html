@@ -1,394 +1,647 @@
 <!DOCTYPE html>
-
-<html lang="ja">
+<html lang="ja" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>食べログ スコア補正ツール</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{
-  --bg:#07111e;--s1:#0d1f35;--s2:#132840;--border:#1e3a5f;
-  --text:#dde8f5;--muted:#5a7a9a;--accent:#3d8ef0;
-  --green:#2dd4a0;--orange:#f4832a;--red:#f56565;--yellow:#f6c547;
+/* ─── CSS VARIABLES ─── */
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface2: #f0f4f9;
+  --border: #dde5f0;
+  --text: #1a2332;
+  --text2: #4a607a;
+  --muted: #8aa0b8;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --green: #059669;
+  --green-light: #ecfdf5;
+  --orange: #d97706;
+  --orange-light: #fffbeb;
+  --red: #dc2626;
+  --yellow: #b45309;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.1);
 }
-html,body{min-height:100%;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
-  font-size:15px;line-height:1.5;}
+[data-theme="dark"] {
+  --bg: #0d1520;
+  --surface: #152030;
+  --surface2: #1c2d42;
+  --border: #243550;
+  --text: #dde8f5;
+  --text2: #7a9fc0;
+  --muted: #4a6a88;
+  --accent: #3d8ef0;
+  --accent-light: rgba(61,142,240,.1);
+  --green: #2dd4a0;
+  --green-light: rgba(45,212,160,.1);
+  --orange: #f4832a;
+  --orange-light: rgba(244,131,42,.1);
+  --red: #f56565;
+  --yellow: #f6c547;
+  --shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --bg: #0d1520; --surface: #152030; --surface2: #1c2d42;
+    --border: #243550; --text: #dde8f5; --text2: #7a9fc0; --muted: #4a6a88;
+    --accent: #3d8ef0; --accent-light: rgba(61,142,240,.1);
+    --green: #2dd4a0; --green-light: rgba(45,212,160,.1);
+    --orange: #f4832a; --orange-light: rgba(244,131,42,.1);
+    --red: #f56565; --yellow: #f6c547;
+    --shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
+  }
+}
+
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { min-height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  font-size: 15px; line-height: 1.5; transition: background .2s, color .2s; }
 
 /* ─── HEADER ─── */
-.hero{
-background:linear-gradient(160deg,#071830 0%,#0e2d54 60%,#071830 100%);
-padding:36px 20px 32px;text-align:center;
-border-bottom:1px solid var(–border);position:relative;overflow:hidden;
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
 }
-.hero::after{
-content:’’;position:absolute;inset:0;
-background:radial-gradient(ellipse 70% 60% at 50% 130%,rgba(61,142,240,.12),transparent);
-pointer-events:none;
+.header-logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent); display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
 }
-.hero-label{
-display:inline-block;background:rgba(61,142,240,.15);color:#7ab8f5;
-border:1px solid rgba(61,142,240,.3);border-radius:99px;
-font-size:11px;font-weight:700;padding:4px 14px;letter-spacing:.06em;
-margin-bottom:14px;
+.logo-text { font-size: 14px; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
+.logo-sub  { font-size: 10px; color: var(--muted); font-weight: 400; }
+.theme-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+  border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer;
+  transition: background .15s; flex-shrink: 0;
 }
-.hero h1{font-size:clamp(20px,6vw,28px);font-weight:800;color:#eaf3ff;
-letter-spacing:-.02em;margin-bottom:8px;}
-.hero p{font-size:12px;color:#7a9fc0;max-width:380px;margin:0 auto;}
+.theme-btn:hover { background: var(--border); }
 
-/* ─── INPUT CARD ─── */
-.card{background:var(–s1);border:1px solid var(–border);border-radius:14px;
-padding:18px 16px;margin:20px 16px 0;}
-.card-title{font-size:11px;font-weight:700;color:var(–muted);
-letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
-.url-row{display:flex;gap:8px;align-items:stretch;}
-.url-input{
-flex:1;background:var(–bg);color:var(–text);
-border:1.5px solid var(–border);border-radius:10px;
-padding:10px 12px;font-size:13px;outline:none;
-transition:border-color .2s;min-width:0;
+/* ─── MAIN ─── */
+.main { max-width: 600px; margin: 0 auto; padding: 20px 16px 60px; }
+
+/* ─── CARD ─── */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; box-shadow: var(--shadow); margin-bottom: 14px;
 }
-.url-input:focus{border-color:var(–accent);}
-.url-input::placeholder{color:var(–muted);}
-.btn{
-background:var(–accent);color:#fff;border:none;
-border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;
-cursor:pointer;flex-shrink:0;transition:background .15s,transform .1s;
-white-space:nowrap;
+.card-title {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px;
 }
-.btn:hover{background:#2d7de0;}
-.btn:active{transform:scale(.96);}
-.btn:disabled{background:#2a4a6a;color:#5a7a9a;cursor:not-allowed;transform:none;}
-.hint{font-size:11px;color:var(–muted);margin-top:8px;line-height:1.6;}
-.hint code{
-background:rgba(255,255,255,.06);color:#7ab8f5;
-border-radius:4px;padding:1px 5px;font-size:10px;
+
+/* ─── INPUT ─── */
+.url-row { display: flex; gap: 8px; }
+.url-input {
+  flex: 1; background: var(--surface2); color: var(--text);
+  border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font-size: 13px; outline: none; min-width: 0;
+  transition: border-color .2s, background .2s;
 }
+.url-input:focus { border-color: var(--accent); background: var(--surface); }
+.url-input::placeholder { color: var(--muted); }
+.btn {
+  background: var(--accent); color: #fff; border: none; border-radius: 10px;
+  padding: 10px 18px; font-size: 13px; font-weight: 700;
+  cursor: pointer; flex-shrink: 0; white-space: nowrap;
+  transition: opacity .15s, transform .1s;
+}
+.btn:hover { opacity: .9; }
+.btn:active { transform: scale(.96); }
+.btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; transform: none; }
+.convert-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--green-light); color: var(--green);
+  border-radius: 99px; font-size: 10px; font-weight: 700; padding: 2px 8px;
+  margin-top: 7px;
+}
+.hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+.hint code { background: var(--surface2); color: var(--accent); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
 
 /* ─── STATUS ─── */
-#status{margin:14px 16px 0;display:none;}
-.status-box{
-border-radius:10px;padding:12px 14px;font-size:12px;
-display:flex;align-items:center;gap:10px;
+.status-box {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: 10px; padding: 11px 14px; font-size: 12px; margin-bottom: 14px;
 }
-.status-loading{background:rgba(61,142,240,.1);border:1px solid rgba(61,142,240,.25);color:#7ab8f5;}
-.status-error  {background:rgba(245,101,101,.1);border:1px solid rgba(245,101,101,.25);color:#feb2b2;}
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(61,142,240,.3);
-border-top-color:var(–accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
-@keyframes spin{to{transform:rotate(360deg)}}
+.status-loading { background: var(--accent-light); border: 1px solid rgba(37,99,235,.2); color: var(--accent); }
+.status-error   { background: rgba(220,38,38,.07); border: 1px solid rgba(220,38,38,.2); color: var(--red); }
+.spinner { width: 15px; height: 15px; border: 2px solid rgba(37,99,235,.25);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ─── RESULTS ─── */
-#results{margin:16px 16px 40px;display:none;}
-
-.store-name{font-size:16px;font-weight:800;color:#eaf3ff;margin-bottom:4px;}
-.store-sub{font-size:11px;color:var(–muted);}
-
-/* score cards */
-.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px;}
-.score-card{
-background:var(–s1);border:1px solid var(–border);border-radius:10px;
-padding:10px 6px;text-align:center;border-top-width:3px;
+/* ─── STORE HEADER ─── */
+.store-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.store-name { font-size: 17px; font-weight: 800; color: var(--text); }
+.store-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.source-tag {
+  background: var(--accent-light); color: var(--accent);
+  border-radius: 6px; font-size: 10px; font-weight: 700;
+  padding: 3px 8px; flex-shrink: 0; white-space: nowrap;
 }
-.score-label{font-size:9px;color:var(–muted);margin-bottom:3px;line-height:1.3;}
-.score-val{font-size:22px;font-weight:900;line-height:1;}
-.score-sub{font-size:9px;color:var(–muted);margin-top:3px;}
 
-/* diff bar */
-.diff-bar{
-background:var(–s1);border:1px solid var(–border);border-radius:8px;
-padding:9px 12px;margin-top:8px;
-display:flex;justify-content:space-between;align-items:center;font-size:11px;
+/* ─── SCORE GRID ─── */
+.score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+.score-card {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 6px; text-align: center; border-top: 3px solid transparent;
 }
-.diff-label{color:var(–muted);}
-.diff-val{font-size:18px;font-weight:900;}
+.sc-label { font-size: 9px; color: var(--muted); line-height: 1.3; margin-bottom: 3px; }
+.sc-val   { font-size: 22px; font-weight: 900; line-height: 1.1; }
+.sc-sub   { font-size: 9px; color: var(--muted); margin-top: 2px; }
 
-/* tabs */
-.tabs{display:flex;gap:6px;margin-top:14px;}
-.tab-btn{
-background:var(–s2);color:var(–muted);border:none;border-radius:7px;
-padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;
-transition:background .15s,color .15s;
+/* ─── DIFF BAR ─── */
+.diff-bar {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; margin-top: 8px;
+  display: flex; justify-content: space-between; align-items: center;
 }
-.tab-btn.active{background:var(–accent);color:#fff;}
+.diff-label { font-size: 11px; color: var(--text2); }
+.diff-val   { font-size: 18px; font-weight: 900; }
 
-/* table */
-.table-wrap{overflow-x:auto;margin-top:10px;}
-table{width:100%;border-collapse:collapse;font-size:11px;}
-th{padding:5px 6px;text-align:left;color:var(–muted);font-weight:600;
-border-bottom:1px solid var(–border);white-space:nowrap;}
-td{padding:4px 6px;border-bottom:1px solid rgba(30,58,95,.5);}
-td.num{text-align:right;color:var(–muted);}
-.badge{
-display:inline-block;border-radius:99px;font-size:9px;font-weight:700;
-padding:1px 6px;white-space:nowrap;
+/* ─── MULTI-SITE RATINGS ─── */
+.ratings-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rating-item {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 10px; text-align: center;
 }
-.badge-taber{background:rgba(244,131,42,.15);color:#f4832a;}
-.badge-normal{background:rgba(45,212,160,.15);color:#2dd4a0;}
+.rating-source { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+.rating-val    { font-size: 22px; font-weight: 900; color: var(--text); }
+.rating-count  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.rating-link   { display: block; margin-top: 5px; font-size: 10px; color: var(--accent); text-decoration: none; }
+.rating-loading { font-size: 12px; color: var(--muted); }
+.rating-na     { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.star { color: #f59e0b; }
 
-/* gmap panel */
-.gmap-panel{margin-top:10px;}
-.gmap-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
-.gmap-btn{
-display:flex;align-items:center;justify-content:center;gap:6px;
-padding:11px;border-radius:9px;text-decoration:none;
-font-size:12px;font-weight:700;transition:opacity .15s;
+/* ─── TABS ─── */
+.tabs { display: flex; gap: 6px; margin-top: 14px; }
+.tab-btn {
+  background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 7px 14px; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: .15s;
 }
-.gmap-btn:active{opacity:.8;}
-.gmap-primary{background:#1a73e8;color:#fff;}
-.gmap-secondary{background:var(–s2);color:var(–text);border:1px solid var(–border);}
-.gmap-info{background:var(–s1);border:1px solid var(–border);border-radius:10px;
-padding:12px;font-size:11px;color:var(–muted);line-height:1.7;}
-.gmap-info b{color:var(–text);}
-.gmap-store{background:var(–s1);border:1px solid var(–border);border-radius:10px;
-padding:11px;margin-top:8px;}
-.gmap-store-name{font-weight:700;color:var(–text);font-size:13px;}
-.gmap-store-addr{font-size:11px;color:var(–muted);margin-top:3px;}
+.tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* how-to */
-.howto{background:var(–s1);border:1px solid var(–border);border-radius:14px;
-padding:16px;margin:16px 16px 0;}
-.howto ol{padding-left:18px;font-size:12px;color:#7a9fc0;line-height:2;}
-.howto li b{color:var(–text);}
-.howto li code{background:rgba(255,255,255,.07);color:#7ab8f5;
-border-radius:3px;padding:1px 4px;font-size:10px;}
+/* ─── TABLE ─── */
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { padding: 5px 6px; text-align: left; color: var(--muted); font-weight: 600;
+  border-bottom: 2px solid var(--border); white-space: nowrap; }
+td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
+td.num { text-align: right; color: var(--text2); }
+tr:last-child td { border-bottom: none; }
+.badge {
+  display: inline-block; border-radius: 99px; font-size: 9px; font-weight: 700;
+  padding: 1px 6px; white-space: nowrap;
+}
+.badge-taber  { background: var(--orange-light); color: var(--orange); }
+.badge-normal { background: var(--green-light);  color: var(--green);  }
+
+/* ─── GMAP PANEL ─── */
+.gmap-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.gmap-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px; border-radius: 9px; text-decoration: none;
+  font-size: 12px; font-weight: 700; transition: opacity .15s;
+}
+.gmap-btn:active { opacity: .8; }
+.gmap-primary   { background: #1a73e8; color: #fff; }
+.gmap-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.gmap-note {
+  background: var(--accent-light); border: 1px solid rgba(37,99,235,.15);
+  border-radius: 10px; padding: 11px 13px; font-size: 11px; color: var(--text2); line-height: 1.7;
+}
+.store-info {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px; margin-top: 8px;
+}
+.store-info-name { font-weight: 700; color: var(--text); font-size: 13px; }
+.store-info-addr { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ─── HOW TO ─── */
+.howto-steps { list-style: none; }
+.howto-steps li {
+  display: flex; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text2);
+}
+.howto-steps li:last-child { border-bottom: none; }
+.step-num {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--accent-light);
+  color: var(--accent); font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 420px) {
+  .score-grid { grid-template-columns: repeat(2, 1fr); }
+  .sc-val { font-size: 20px; }
+  .ratings-row { grid-template-columns: repeat(3, 1fr); }
+}
 </style>
-
 </head>
 <body>
 
-<div class="hero">
-  <div class="hero-label">TABELOG ANALYZER</div>
-  <h1>食べログ<br>スコア補正ツール</h1>
-  <p>食べロガーを除外した客観的スコアを算出します</p>
+<!-- ─── HEADER ─── -->
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <div class="logo-text">食べログ スコア補正</div>
+      <div class="logo-sub">食べロガー除外 + 他サイト比較</div>
+    </div>
+  </div>
+  <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()">🌙 ダーク</button>
 </div>
 
-<!-- Input -->
+<!-- ─── MAIN ─── -->
+<div class="main">
 
-<div class="card">
-  <div class="card-title">飲食店URLを入力</div>
-  <div class="url-row">
-    <input id="url-input" class="url-input" type="url"
-      placeholder="https://tabelog.com/en/kagawa/...">
-    <button id="analyze-btn" class="btn" onclick="runAnalysis()">分析</button>
-  </div>
-  <div class="hint">
-    英語版URL推奨: <code>tabelog.com/en/</code> から始まるURLをご使用ください<br>
-    例: <code>https://tabelog.com/en/kagawa/A3701/A370101/37001763/</code>
-  </div>
-</div>
-
-<!-- Status -->
-
-<div id="status">
-  <div id="status-box" class="status-box"></div>
-</div>
-
-<!-- Results -->
-
-<div id="results">
-  <div id="store-name" class="store-name"></div>
-  <div id="store-sub" class="store-sub"></div>
-
-  <div class="score-grid">
-    <div class="score-card" style="border-top-color:#8a9db8">
-      <div class="score-label">食べログ公式</div>
-      <div class="score-val" style="color:#8a9db8" id="sc-official">—</div>
-      <div class="score-sub">加重アルゴリズム</div>
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-title">飲食店URLを入力</div>
+    <div class="url-row">
+      <input id="url-input" class="url-input" type="url"
+        placeholder="https://tabelog.com/kagawa/...">
+      <button id="analyze-btn" class="btn" onclick="runAnalysis()">分析</button>
     </div>
-    <div class="score-card" style="border-top-color:#3d8ef0">
-      <div class="score-label">単純平均</div>
-      <div class="score-val" style="color:#3d8ef0" id="sc-all">—</div>
-      <div class="score-sub" id="sc-all-sub">全?件</div>
+    <div id="convert-notice" style="display:none" class="convert-tag">
+      ✓ 英語版URLに自動変換しました
     </div>
-    <div class="score-card" style="border-top-color:#2dd4a0">
-      <div class="score-label">🟢 一般ユーザー</div>
-      <div class="score-val" style="color:#2dd4a0" id="sc-general">—</div>
-      <div class="score-sub" id="sc-gen-sub">?件</div>
-    </div>
-    <div class="score-card" style="border-top-color:#f4832a">
-      <div class="score-label">🟠 食べロガー</div>
-      <div class="score-val" style="color:#f4832a" id="sc-taber">—</div>
-      <div class="score-sub" id="sc-tab-sub">?件</div>
+    <div class="hint">
+      日本語・英語どちらのURLも対応。英語版に自動変換して取得します。<br>
+      例: <code>tabelog.com/kagawa/A3701/A370101/37001763/</code>
     </div>
   </div>
 
-  <div class="diff-bar">
-    <span class="diff-label">一般 vs 食べロガー の差</span>
-    <span class="diff-val" id="diff-val">—</span>
+  <!-- Status -->
+  <div id="status" style="display:none">
+    <div id="status-box" class="status-box"></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('analysis', this)">📊 口コミ分析</button>
-    <button class="tab-btn" onclick="switchTab('gmap', this)">🗺️ Google Maps</button>
-  </div>
+  <!-- ─── RESULTS ─── -->
+  <div id="results" style="display:none">
 
-  <div id="tab-analysis">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>名前</th><th>投稿</th><th>F</th><th>評価</th><th>判定</th>
-          </tr>
-        </thead>
-        <tbody id="review-table"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="tab-gmap" style="display:none">
-    <div class="gmap-panel">
-      <div class="gmap-btns">
-        <a id="gmap-link" href="#" target="_blank" rel="noopener" class="gmap-btn gmap-primary">
-          🗺️ Google マップ
-        </a>
-        <a id="gsearch-link" href="#" target="_blank" rel="noopener" class="gmap-btn gmap-secondary">
-          🔍 Google 検索
-        </a>
+    <!-- Store info + Tabelog scores -->
+    <div class="card">
+      <div class="store-header">
+        <div>
+          <div class="store-name" id="store-name"></div>
+          <div class="store-sub" id="store-sub"></div>
+        </div>
+        <span class="source-tag">食べログ</span>
       </div>
-      <div class="gmap-info">
-        <b>Google マップのスコアについて</b><br>
-        CORS制限のため自動取得は行っていません。上のボタンでマップを開き、
-        Google の星評価と口コミ数を手動で確認してください。<br><br>
-        <b style="color:var(--accent)">比較のコツ：</b>
-        食べログの「一般ユーザー平均」と Google マップの評価を見比べると、
-        より客観的な判断ができます。
+      <div class="score-grid">
+        <div class="score-card" style="border-top-color:#94a3b8">
+          <div class="sc-label">公式スコア</div>
+          <div class="sc-val" style="color:#94a3b8" id="sc-official">—</div>
+          <div class="sc-sub">加重アルゴリズム</div>
+        </div>
+        <div class="score-card" style="border-top-color:var(--accent)">
+          <div class="sc-label">単純平均</div>
+          <div class="sc-val" style="color:var(--accent)" id="sc-all">—</div>
+          <div class="sc-sub" id="sc-all-sub">—</div>
+        </div>
+        <div class="score-card" style="border-top-color:var(--green)">
+          <div class="sc-label">🟢 一般ユーザー</div>
+          <div class="sc-val" style="color:var(--green)" id="sc-general">—</div>
+          <div class="sc-sub" id="sc-gen-sub">—</div>
+        </div>
+        <div class="score-card" style="border-top-color:var(--orange)">
+          <div class="sc-label">🟠 食べロガー</div>
+          <div class="sc-val" style="color:var(--orange)" id="sc-taber">—</div>
+          <div class="sc-sub" id="sc-tab-sub">—</div>
+        </div>
       </div>
-      <div class="gmap-store">
-        <div class="gmap-store-name" id="gmap-store-name"></div>
-        <div class="gmap-store-addr" id="gmap-store-addr"></div>
+      <div class="diff-bar">
+        <span class="diff-label">一般ユーザー vs 食べロガー の差</span>
+        <span class="diff-val" id="diff-val">—</span>
       </div>
     </div>
+
+    <!-- Other sites -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px;">他サイトのスコア</div>
+      <div class="ratings-row">
+        <!-- Google Maps -->
+        <div class="rating-item">
+          <div class="rating-source">🗺️ Google</div>
+          <div id="grating-val" class="rating-loading">取得中…</div>
+          <div id="grating-count" class="rating-count"></div>
+          <a id="gmap-link" href="#" target="_blank" rel="noopener" class="rating-link">マップで見る →</a>
+        </div>
+        <!-- Retty -->
+        <div class="rating-item">
+          <div class="rating-source">🍽️ Retty</div>
+          <div id="rrating-val" class="rating-loading">取得中…</div>
+          <div id="rrating-count" class="rating-count"></div>
+          <a id="retty-link" href="#" target="_blank" rel="noopener" class="rating-link">Rettyで見る →</a>
+        </div>
+        <!-- Comparison tip -->
+        <div class="rating-item" style="background:var(--accent-light);border-color:rgba(37,99,235,.2);">
+          <div class="rating-source" style="color:var(--accent);">💡 比較ヒント</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px;line-height:1.5;">
+            一般スコアと他サイト評価が近い → 信頼度高<br>
+            公式と乖離が大きい → 要注意
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="card" style="padding-bottom:6px">
+      <div class="tabs" style="margin-top:0">
+        <button class="tab-btn active" onclick="switchTab('analysis',this)">📋 口コミ一覧</button>
+        <button class="tab-btn" onclick="switchTab('gmap',this)">🗺️ Google Maps</button>
+      </div>
+
+      <!-- Analysis tab -->
+      <div id="tab-analysis">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>名前</th>
+                <th style="text-align:right">投稿数</th>
+                <th style="text-align:right">F</th>
+                <th style="text-align:right">評価</th>
+                <th>判定</th>
+              </tr>
+            </thead>
+            <tbody id="review-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Google Maps tab -->
+      <div id="tab-gmap" style="display:none;padding:10px 0 4px">
+        <div class="gmap-btns">
+          <a id="gmap-btn-link" href="#" target="_blank" rel="noopener" class="gmap-btn gmap-primary">
+            🗺️ Google マップで開く
+          </a>
+          <a id="gsearch-link" href="#" target="_blank" rel="noopener" class="gmap-btn gmap-secondary">
+            🔍 Google 検索
+          </a>
+        </div>
+        <div class="gmap-note">
+          <strong>Google スコアの自動取得について</strong><br>
+          Google マップのAPIはCORS制限のため完全な自動取得が難しく、
+          ベストエフォートで取得を試みています。取得できない場合は上のボタンから
+          手動でご確認ください。<br><br>
+          <strong style="color:var(--accent)">活用のコツ：</strong>
+          食べログの「一般ユーザー平均」と Google の評価が近ければ信頼度が高く、
+          食べログ公式スコアとの差が大きければ食べロガーの影響を受けている可能性があります。
+        </div>
+        <div class="store-info" id="gmap-store-info"></div>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+
+  <!-- How to use -->
+  <div class="card">
+    <div class="card-title">使い方</div>
+    <ol class="howto-steps">
+      <li><span class="step-num">1</span>食べログの飲食店ページを開いてURLをコピー</li>
+      <li><span class="step-num">2</span>上の入力欄に貼り付けて <strong>「分析」</strong> をタップ（10〜20秒）</li>
+      <li><span class="step-num">3</span>食べロガー除外スコアと他サイトスコアが表示される</li>
+      <li><span class="step-num">4</span>「Google Maps」タブで地図・評価を確認</li>
+    </ol>
   </div>
-</div>
 
-<!-- How to use -->
-
-<div class="howto">
-  <div class="card-title">使い方</div>
-  <ol>
-    <li>食べログの飲食店ページを開く</li>
-    <li>URLをコピーして上の入力欄に貼り付ける</li>
-    <li><b>「分析」</b>ボタンをタップ（10〜20秒かかります）</li>
-    <li>スコア比較と口コミ一覧が表示される</li>
-    <li><b>「Google Maps」</b>タブでGoogleマップへ移動</li>
-  </ol>
-</div>
+</div><!-- /main -->
 
 <script>
 'use strict';
 
-const RT = 200; // 食べロガー判定: 投稿数
-const FT = 50;  // 食べロガー判定: フォロワー数
+const RT = 200; // 食べロガー: 投稿数の閾値
+const FT = 50;  // 食べロガー: フォロワーの閾値
 
-// CORS プロキシ（順番にフォールバック）
+// CORS プロキシ（優先順）
 const PROXIES = [
   u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
   u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
 ];
 
+// ─── テーマ ───────────────────────────────────────
+function getTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) return saved;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle');
+  btn.textContent = theme === 'dark' ? '☀️ ライト' : '🌙 ダーク';
+  localStorage.setItem('theme', theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+applyTheme(getTheme());
+
+// ─── URL 自動変換 ─────────────────────────────────
+function normalizeUrl(url) {
+  // 日本語版 → 英語版に変換
+  // tabelog.com/XX/ → tabelog.com/en/XX/
+  const converted = url.replace(
+    /^(https?:\/\/tabelog\.com\/)(?!en\/)(\w+\/)/,
+    '$1en/$2'
+  );
+  return { url: converted, wasConverted: converted !== url };
+}
+
+// URL入力時にプレビュー表示
+document.getElementById('url-input').addEventListener('input', function() {
+  const { wasConverted } = normalizeUrl(this.value.trim());
+  document.getElementById('convert-notice').style.display = wasConverted ? 'flex' : 'none';
+});
+
+// ─── HTTP フェッチ（プロキシ経由）─────────────────
 async function fetchPage(url) {
   let lastErr;
   for (const mkUrl of PROXIES) {
     try {
       const res = await fetch(mkUrl(url), {
         signal: AbortSignal.timeout(20000),
-        headers: { 'Accept': 'text/html' }
+        headers: { Accept: 'text/html,*/*' }
       });
       if (res.ok) return await res.text();
+      lastErr = new Error(`HTTP ${res.status}`);
     } catch (e) {
       lastErr = e;
     }
   }
-  throw new Error('ページ取得に失敗しました。しばらく待ってから再試行してください。');
+  throw new Error('ページの取得に失敗しました（全プロキシ失敗）');
 }
 
+// ─── 口コミ パース ────────────────────────────────
 function parseReviews(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const seen = new Set();
+
+  // 同じ /rvwr/ URLを持つリンクを全て収集し、テキストが一番長いものを採用
+  // （アバター画像リンク vs 名前テキストリンクの問題を解消）
+  const profileMap = new Map();
+  doc.querySelectorAll('a[href*="/rvwr/"]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href) return;
+    const text = a.textContent.trim();
+    const cur = profileMap.get(href);
+    if (!cur || text.length > cur.text.length) {
+      profileMap.set(href, { a, text });
+    }
+  });
+
   const results = [];
 
-  // 全レビュアーリンクを収集
-  const allLinks = [...doc.querySelectorAll('a[href*="/rvwr/"]')];
+  for (const [href, { a, text: name }] of profileMap) {
+    if (!name) continue; // 名前なし（アバターのみ）はスキップ
 
-  for (const link of allLinks) {
-    const href = link.getAttribute('href');
-    if (!href || seen.has(href)) continue;
-
-    // コンテナを探す（複数の戦略）
+    // レビューコンテナを特定
     const container =
-      link.closest('[class*="rvw-item"]:not([class*="__"])') ||
-      link.closest('li[class]') ||
-      link.closest('li') ||
+      a.closest('[class*="rvw-item"]:not([class*="__"])') ||
+      a.closest('li[class]') ||
+      a.closest('li') ||
       (() => {
-        let el = link.parentElement;
-        for (let i = 0; i < 5 && el; i++, el = el.parentElement) {
-          if (el.querySelectorAll('a[href*="/rvwr/"]').length === 1) return el;
+        let el = a.parentElement;
+        for (let i = 0; i < 6 && el; i++, el = el.parentElement) {
+          if (el.querySelectorAll('a[href*="/rvwr/"]').length <= 2) return el;
         }
         return null;
       })();
-
     if (!container) continue;
 
-    const text = container.textContent || '';
+    const txt = container.textContent;
 
-    // ── スコア抽出 ──────────────────────────
+    // スコア抽出
     let score = NaN;
-    // 1. クラス名で探す
-    const scoreEl = container.querySelector('[class*="total-score"],[class*="score-val"],[class*="rating-score"]');
+    const scoreEl = container.querySelector(
+      '[class*="total-score"],[class*="score-val"],[class*="rating-score"]'
+    );
     if (scoreEl) score = parseFloat(scoreEl.textContent.trim());
-    // 2. 正規表現フォールバック
     if (isNaN(score) || score < 1 || score > 5) {
-      const m = text.match(/\b([1-5]\.[0-9])\b/);
+      const m = txt.match(/\b([1-5]\.[0-9])\b/);
       if (m) score = parseFloat(m[1]);
     }
     if (isNaN(score) || score < 1 || score > 5) continue;
 
-    // ── 投稿数 ──────────────────────────────
-    // EN: "Review 34 posts" / JP: "34件" or "口コミ34件"
+    // 投稿数 (EN: "Review 34 posts" / JP: "34件")
     const rcMatch =
-      text.match(/Review\s+([\d,]+)\s*post/i) ||
-      text.match(/口コミ\s*([\d,]+)\s*件/) ||
-      text.match(/([\d,]+)\s*件/);
+      txt.match(/Review\s+([\d,]+)\s*post/i) ||
+      txt.match(/口コミ\s*([\d,]+)\s*件/) ||
+      txt.match(/([\d,]+)\s*件/);
     const rc = rcMatch ? parseInt(rcMatch[1].replace(/,/g, '')) : 0;
 
-    // ── フォロワー数 ─────────────────────────
-    // EN: "Followers 53 people" / JP: "フォロワー53" or "53人フォロワー"
+    // フォロワー (EN: "Followers 53 people" / JP: "フォロワー53")
     const fcMatch =
-      text.match(/Follower[s]?\s+([\d,]+)\s*people?/i) ||
-      text.match(/フォロワー[^\d]*([\d,]+)/) ||
-      text.match(/([\d,]+)\s*人.*フォロワー/);
+      txt.match(/Follower[s]?\s+([\d,]+)\s*people?/i) ||
+      txt.match(/フォロワー[^\d]*([\d,]+)/) ||
+      txt.match(/([\d,]+)\s*人.*フォロワー/);
     const fc = fcMatch ? parseInt(fcMatch[1].replace(/,/g, '')) : 0;
 
-    seen.add(href);
-    results.push({ name: link.textContent.trim() || 'Unknown', rc, fc, score });
+    results.push({ name, rc, fc, score });
   }
 
   return results;
 }
 
+// ─── Google スコア取得（ベストエフォート）────────────
+async function fetchGoogleRating(name, address) {
+  const q = `${name} ${address}`;
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=ja&gl=JP`;
+
+  try {
+    const html = await fetchPage(searchUrl);
+
+    // JSON-LD から取得
+    const ldMatches = html.match(/"ratingValue"\s*:\s*"?([0-9.]+)"?/g);
+    const cntMatches = html.match(/"(?:reviewCount|ratingCount)"\s*:\s*"?([0-9,]+)"?/g);
+
+    if (ldMatches && ldMatches.length > 0) {
+      const rating = parseFloat(ldMatches[0].match(/([0-9.]+)/)[1]);
+      const count  = cntMatches ? parseInt(cntMatches[0].match(/([0-9,]+)/)[1].replace(/,/g,'')) : null;
+      if (rating >= 1 && rating <= 5) return { rating: rating.toFixed(1), count };
+    }
+
+    // og:description や structured data から探す
+    const rateInText = html.match(/\b([1-5]\.[0-9])\b\s*[（(（]?([\d,]+)\s*件/);
+    if (rateInText) {
+      return { rating: rateInText[1], count: parseInt(rateInText[2].replace(/,/g,'')) };
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─── Retty スコア取得（ベストエフォート）─────────────
+async function fetchRettyRating(name, address) {
+  const city = address.replace(/(.{2,4}[都道府県]).*/, '$1'); // 都道府県だけ
+  const searchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(name + ' ' + city)}`;
+
+  try {
+    const html = await fetchPage(searchUrl);
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+    // Retty の検索結果から最初のマッチを取得
+    const firstItem = doc.querySelector('[class*="restaurant-item"], [class*="RestaurantItem"]');
+    if (!firstItem) return { searchUrl };
+
+    // 評点
+    const scoreEl = firstItem.querySelector('[class*="score"], [class*="rating"], [class*="point"]');
+    const rating  = scoreEl ? parseFloat(scoreEl.textContent.trim()) : null;
+
+    // リンク
+    const linkEl = firstItem.querySelector('a[href*="/area/"]');
+    const rettyUrl = linkEl ? 'https://retty.me' + linkEl.getAttribute('href') : null;
+
+    return { rating: rating?.toFixed(1), rettyUrl, searchUrl };
+  } catch (e) {
+    return { searchUrl };
+  }
+}
+
+// ─── ヘルパー ─────────────────────────────────────
 function avg(arr) {
   if (!arr.length) return null;
   return (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(2);
 }
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function setEl(id, html, isText = false) {
+  const el = document.getElementById(id);
+  if (isText) el.textContent = html; else el.innerHTML = html;
+}
 
-// ── UI ヘルパー ─────────────────────────────────
+// ─── UI 状態管理 ──────────────────────────────────
 function showStatus(type, msg) {
-  const el = document.getElementById('status');
-  const box = document.getElementById('status-box');
-  el.style.display = 'block';
+  const wrap = document.getElementById('status');
+  const box  = document.getElementById('status-box');
+  wrap.style.display = 'block';
   if (type === 'loading') {
     box.className = 'status-box status-loading';
-    box.innerHTML = `<span class="spinner"></span> ${msg}`;
+    box.innerHTML = `<span class="spinner"></span>${msg}`;
   } else {
     box.className = 'status-box status-error';
     box.textContent = '⚠️ ' + msg;
   }
 }
 function hideStatus() { document.getElementById('status').style.display = 'none'; }
-function showResults() { document.getElementById('results').style.display = 'block'; }
-function hideResults() { document.getElementById('results').style.display = 'none'; }
 
 function switchTab(tab, btn) {
   document.getElementById('tab-analysis').style.display = tab === 'analysis' ? 'block' : 'none';
@@ -397,42 +650,48 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
 }
 
-// ── メイン処理 ────────────────────────────────
+// ─── メイン分析 ───────────────────────────────────
 async function runAnalysis() {
-  const urlInput = document.getElementById('url-input');
-  const analyzeBtn = document.getElementById('analyze-btn');
-  const url = urlInput.value.trim();
+  const rawUrl = document.getElementById('url-input').value.trim();
+  if (!rawUrl) return;
 
-  if (!url) return;
+  const { url, wasConverted } = normalizeUrl(rawUrl);
+  if (wasConverted) {
+    document.getElementById('url-input').value = url;
+    document.getElementById('convert-notice').style.display = 'flex';
+  }
 
   // URL検証
-  const match = url.match(/(https?:\/\/tabelog\.com(?:\/en)?\/\w+\/[A-Z]\d+\/[A-Z]\d+\/\d+)/);
-  if (!match) {
+  const m = url.match(/(https?:\/\/tabelog\.com\/en\/\w+\/[A-Z]\d+\/[A-Z]\d+\/\d+)/);
+  if (!m) {
     showStatus('error', '食べログの飲食店URLを入力してください');
     return;
   }
 
+  const analyzeBtn = document.getElementById('analyze-btn');
   analyzeBtn.disabled = true;
-  hideResults();
-  showStatus('loading', '口コミ2ページを取得中…（10〜20秒）');
+  document.getElementById('results').style.display = 'none';
+  showStatus('loading', '口コミ取得中（2ページ）… しばらくお待ちください');
+
+  // 他サイトスコアをローディング状態にリセット
+  setEl('grating-val', '<span class="rating-loading">取得中…</span>');
+  setEl('rrating-val', '<span class="rating-loading">取得中…</span>');
+  setEl('grating-count', '');
+  setEl('rrating-count', '');
 
   try {
-    const baseUrl  = match[1];
+    const baseUrl  = m[1];
     const rvwUrl   = baseUrl + '/dtlrvwlst/';
     const rvwUrl2  = rvwUrl + '?PG=2&lc=0&rvw_part=all&smp=1&use_type=0';
 
     const [html1, html2] = await Promise.all([fetchPage(rvwUrl), fetchPage(rvwUrl2)]);
 
     const reviews = [...parseReviews(html1), ...parseReviews(html2)];
+    if (!reviews.length) throw new Error(
+      '口コミデータを取得できませんでした。\nURLが正しいか確認してください。'
+    );
 
-    if (!reviews.length) {
-      throw new Error(
-        '口コミデータを取得できませんでした。\n' +
-        '英語版URL（/en/ を含む）でお試しください。\n例: tabelog.com/en/kagawa/...'
-      );
-    }
-
-    // ページから店舗情報を取得
+    // 店舗情報
     const doc1 = new DOMParser().parseFromString(html1, 'text/html');
     const name = (
       doc1.querySelector('.rdheader-info__name-main')?.textContent ||
@@ -446,67 +705,94 @@ async function runAnalysis() {
       doc1.querySelector('.rstinfo-table__address, [itemprop="address"]')?.textContent || ''
     ).replace(/\s+/g, ' ').trim();
 
-    // 分類
-    const classified = reviews.map(r => ({
-      ...r,
-      isTaber: r.rc >= RT && r.fc >= FT
-    }));
-    const T = classified.filter(r => r.isTaber);
-    const G = classified.filter(r => !r.isTaber);
+    // 分類 & 計算
+    const classified = reviews.map(r => ({ ...r, isTaber: r.rc >= RT && r.fc >= FT }));
+    const T    = classified.filter(r => r.isTaber);
+    const G    = classified.filter(r => !r.isTaber);
     const aAll = avg(classified.map(r => r.score));
     const aT   = avg(T.map(r => r.score));
     const aG   = avg(G.map(r => r.score));
     const gap  = (aG && aT) ? (parseFloat(aG) - parseFloat(aT)).toFixed(2) : null;
 
-    // ── UI に反映 ────────────────────────────
-    document.getElementById('store-name').textContent = name;
-    document.getElementById('store-sub').textContent =
-      `${classified.length}件分析 ／ 食べロガー判定: 投稿${RT}件+ & フォロワー${FT}人+`;
+    // ── 食べログ スコア表示 ────────────────────────
+    setEl('store-name', esc(name), true);
+    setEl('store-sub', `${classified.length}件分析 ／ 食べロガー判定: 投稿${RT}件+ ＆ フォロワー${FT}人+`, true);
 
-    document.getElementById('sc-official').textContent = isNaN(officialScore) ? '—' : officialScore.toFixed(2);
-    document.getElementById('sc-all').textContent      = aAll || '—';
-    document.getElementById('sc-all-sub').textContent  = `全${classified.length}件`;
-    document.getElementById('sc-general').textContent  = aG || '—';
-    document.getElementById('sc-gen-sub').textContent  = `${G.length}件`;
-    document.getElementById('sc-taber').textContent    = aT || '—';
-    document.getElementById('sc-tab-sub').textContent  = `${T.length}件`;
+    setEl('sc-official', isNaN(officialScore) ? '—' : officialScore.toFixed(2), true);
+    setEl('sc-all', aAll || '—', true);
+    setEl('sc-all-sub', `全${classified.length}件`, true);
+    setEl('sc-general', aG || '—', true);
+    setEl('sc-gen-sub', `${G.length}件`, true);
+    setEl('sc-taber', aT || '—', true);
+    setEl('sc-tab-sub', `${T.length}件`, true);
 
     const diffEl = document.getElementById('diff-val');
     if (gap) {
-      diffEl.textContent = (parseFloat(gap) >= 0 ? '+' : '') + gap;
-      diffEl.style.color = parseFloat(gap) > 0 ? 'var(--green)' : 'var(--red)';
+      const pos = parseFloat(gap) >= 0;
+      diffEl.textContent = (pos ? '+' : '') + gap;
+      diffEl.style.color = pos ? 'var(--green)' : 'var(--red)';
     } else {
       diffEl.textContent = '—';
+      diffEl.style.color = 'var(--text2)';
     }
 
-    // テーブル
-    const tbody = document.getElementById('review-table');
-    tbody.innerHTML = classified.map((r, i) => {
-      const rColor = r.score >= 4.0 ? 'var(--green)' : r.score >= 3.6 ? 'var(--yellow)' : 'var(--red)';
+    // ── レビューテーブル ───────────────────────────
+    document.getElementById('review-table').innerHTML = classified.map((r, i) => {
+      const c = r.score >= 4.0 ? 'var(--green)' : r.score >= 3.6 ? 'var(--yellow)' : 'var(--red)';
       return `
         <tr>
           <td class="num">${i + 1}</td>
-          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);">${escHtml(r.name)}</td>
+          <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name)}</td>
           <td class="num">${r.rc}</td>
           <td class="num">${r.fc}</td>
-          <td class="num" style="font-weight:700;color:${rColor};">${r.score.toFixed(1)}</td>
-          <td>
-            <span class="badge ${r.isTaber ? 'badge-taber' : 'badge-normal'}">
-              ${r.isTaber ? '食べロガー' : '一般'}
-            </span>
-          </td>
+          <td class="num" style="font-weight:700;color:${c}">${r.score.toFixed(1)}</td>
+          <td><span class="badge ${r.isTaber ? 'badge-taber' : 'badge-normal'}">${r.isTaber ? '食べロガー' : '一般'}</span></td>
         </tr>`;
     }).join('');
 
-    // Google Maps
-    const q = encodeURIComponent(name + ' ' + address);
-    document.getElementById('gmap-link').href    = `https://www.google.com/maps/search/${q}`;
-    document.getElementById('gsearch-link').href = `https://www.google.com/search?q=${q}`;
-    document.getElementById('gmap-store-name').textContent = name;
-    document.getElementById('gmap-store-addr').textContent = address || '住所情報なし';
+    // ── Google Maps リンク ─────────────────────────
+    const q = encodeURIComponent(`${name} ${address}`);
+    const gmUrl = `https://www.google.com/maps/search/${q}`;
+    const gsUrl = `https://www.google.com/search?q=${q}`;
+    document.getElementById('gmap-link').href     = gmUrl;
+    document.getElementById('gmap-btn-link').href = gmUrl;
+    document.getElementById('gsearch-link').href  = gsUrl;
 
+    document.getElementById('gmap-store-info').innerHTML = `
+      <div class="store-info-name">${esc(name)}</div>
+      <div class="store-info-addr">${esc(address) || '住所情報なし'}</div>`;
+
+    // ── Retty リンク（事前設定）───────────────────
+    const rettySearchUrl = `https://retty.me/area/search/?q=${encodeURIComponent(name)}`;
+    document.getElementById('retty-link').href = rettySearchUrl;
+
+    // 結果表示
     hideStatus();
-    showResults();
+    document.getElementById('results').style.display = 'block';
+
+    // ── 他サイト スコア非同期取得 ─────────────────
+    fetchGoogleRating(name, address).then(result => {
+      if (result?.rating) {
+        setEl('grating-val', `<span class="rating-val"><span class="star">★</span>${result.rating}</span>`);
+        if (result.count) setEl('grating-count', `${result.count.toLocaleString()}件の口コミ`, true);
+      } else {
+        setEl('grating-val', '<span class="rating-na">リンクから確認</span>');
+      }
+    }).catch(() => {
+      setEl('grating-val', '<span class="rating-na">取得不可</span>');
+    });
+
+    fetchRettyRating(name, address).then(result => {
+      if (result?.rating && !isNaN(parseFloat(result.rating))) {
+        setEl('rrating-val', `<span class="rating-val"><span class="star">★</span>${result.rating}</span>`);
+        if (result.rettyUrl) document.getElementById('retty-link').href = result.rettyUrl;
+      } else {
+        setEl('rrating-val', '<span class="rating-na">リンクから確認</span>');
+        if (result?.searchUrl) document.getElementById('retty-link').href = result.searchUrl;
+      }
+    }).catch(() => {
+      setEl('rrating-val', '<span class="rating-na">取得不可</span>');
+    });
 
   } catch (err) {
     showStatus('error', err.message);
@@ -515,17 +801,10 @@ async function runAnalysis() {
   }
 }
 
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// Enterキー対応
+// Enterキー
 document.getElementById('url-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') runAnalysis();
 });
 </script>
-
 </body>
 </html>
